@@ -1,0 +1,59 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
+
+# Uploads (user data - never commit)
+backend/uploads/wardrobe/*
+backend/uploads/reference/*
+backend/uploads/tryon/*
+!backend/uploads/wardrobe/.gitkeep
+!backend/uploads/reference/.gitkeep
+!backend/uploads/tryon/.gitkeep
+
+# Prisma generated
+backend/src/generated/
+
+# Logs
+*.log
+logs/
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+**/coverage/
+
+# Misc
+*.pem
+*.key
+*.cert

@@ -1,0 +1,453 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// CLOSETTE — Prisma Schema
+// Database: MySQL (via Laragon), managed by Prisma Migrate
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum AnalysisMethod {
+  QUIZ
+  PHOTO
+  MANUAL
+}
+
+enum MeasurementUnit {
+  CM
+  INCH
+}
+
+enum ClothingCategory {
+  TOPS
+  BOTTOMS
+  DRESSES
+  OUTERWEAR
+  SHOES
+  BAGS
+  ACCESSORIES
+  ACTIVEWEAR
+  UNDERWEAR
+  OTHER
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum StylingRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum OutfitStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TryOnStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ConsentType {
+  TERMS_OF_SERVICE
+  PRIVACY_POLICY
+  AI_PROCESSING
+  PHOTO_ANALYSIS
+  DATA_RETENTION
+  MARKETING
+}
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(uuid())
+  name            String
+  email           String    @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  role            UserRole  @default(USER)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  profile           UserProfile?
+  stylePreferences  StylePreference[]
+  colorProfile      ColorProfile?
+  bodyMeasurements  BodyMeasurement?
+  wardrobeItems     WardrobeItem[]
+  stylingRequests   StylingRequest[]
+  outfits           Outfit[]
+  tryOnJobs         TryOnJob[]
+  savedLooks        SavedLook[]
+  outfitPlans       OutfitPlan[]
+  consents          UserConsent[]
+  sessions          Session[]
+  passwordResets    PasswordResetToken[]
+  auditEvents       AuditEvent[]
+
+  @@map("users")
+}
+
+// ─── SESSIONS ────────────────────────────────────────────────────────────────
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  userAgent String?  @db.Text
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+// ─── PASSWORD RESET ───────────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─── USER PROFILES ────────────────────────────────────────────────────────────
+
+model UserProfile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  displayName       String?
+  avatarPath        String?
+  bio               String?  @db.Text
+  preferredLanguage String   @default("id")
+  country           String?
+  preferredUnit     MeasurementUnit @default(CM)
+  onboardingStep    Int      @default(0)
+  onboardingDone    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// ─── STYLE PREFERENCES ───────────────────────────────────────────────────────
+
+model StylePreference {
+  id               String   @id @default(uuid())
+  userId           String
+  styleType        String   // e.g. casual, formal, streetwear, minimalist, bohemian
+  preferenceValue  Int      @default(3) // 1-5 scale
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("style_preferences")
+}
+
+// ─── COLOR PROFILES ──────────────────────────────────────────────────────────
+
+model ColorProfile {
+  id                  String         @id @default(uuid())
+  userId              String         @unique
+  undertoneSuggestion String?        // warm, cool, neutral
+  paletteColors       Json?          // string[] of hex colors
+  avoidColors         Json?          // string[] of hex colors to avoid
+  hairColor           String?
+  eyeColor            String?
+  skinToneDescription String?
+  analysisMethod      AnalysisMethod @default(QUIZ)
+  updatedAt           DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("color_profiles")
+}
+
+// ─── BODY MEASUREMENTS ───────────────────────────────────────────────────────
+
+model BodyMeasurement {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  height         Decimal?        @db.Decimal(5, 2)
+  chest          Decimal?        @db.Decimal(5, 2)
+  waist          Decimal?        @db.Decimal(5, 2)
+  hips           Decimal?        @db.Decimal(5, 2)
+  shoulderWidth  Decimal?        @db.Decimal(5, 2)
+  inseam         Decimal?        @db.Decimal(5, 2)
+  unit           MeasurementUnit @default(CM)
+  bodyShape      String?         // hourglass, pear, apple, rectangle, inverted-triangle
+  fitPreference  String?         // slim, regular, relaxed, oversized
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("body_measurements")
+}
+
+// ─── WARDROBE ITEMS ──────────────────────────────────────────────────────────
+
+model WardrobeItem {
+  id              String           @id @default(uuid())
+  userId          String
+  name            String
+  category        ClothingCategory
+  subcategory     String?
+  imagePath       String
+  thumbnailPath   String?
+  dominantColor   String?          // hex
+  secondaryColors Json?            // string[] of hex
+  pattern         String?          // solid, striped, plaid, floral, geometric, etc.
+  fabricEstimate  String?          // cotton, polyester, denim, silk, etc.
+  brand           String?
+  size            String?
+  fit             String?          // slim, regular, relaxed, oversized
+  season          String?          // spring, summer, autumn, winter, all-season
+  isFavorite      Boolean          @default(false)
+  analysisStatus  AnalysisStatus   @default(PENDING)
+  analysisData    Json?            // raw AI analysis result
+  notes           String?          @db.Text
+  isArchived      Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags        WardrobeItemTag[]
+  outfitItems OutfitItem[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([userId, isFavorite])
+  @@index([userId, isArchived])
+  @@map("wardrobe_items")
+}
+
+// ─── WARDROBE ITEM TAGS ───────────────────────────────────────────────────────
+
+model WardrobeItemTag {
+  id             String @id @default(uuid())
+  wardrobeItemId String
+  tag            String
+
+  wardrobeItem WardrobeItem @relation(fields: [wardrobeItemId], references: [id], onDelete: Cascade)
+
+  @@index([wardrobeItemId])
+  @@index([tag])
+  @@map("wardrobe_item_tags")
+}
+
+// ─── STYLING REQUESTS ─────────────────────────────────────────────────────────
+
+model StylingRequest {
+  id                 String               @id @default(uuid())
+  userId             String
+  occasion           String
+  formality          String?
+  weatherPreference  String?
+  stylePreferences   Json?                // string[] of style keywords
+  colorPreferences   Json?                // string[] of preferred colors
+  avoidColors        Json?                // string[] of avoided colors
+  comfortPriority    Int?                 @default(3) // 1-5
+  selectedItemIds    Json?                // string[] wardrobe item IDs (snapshot)
+  status             StylingRequestStatus @default(PENDING)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfits Outfit[]
+
+  @@index([userId])
+  @@map("styling_requests")
+}
+
+// ─── OUTFITS ─────────────────────────────────────────────────────────────────
+
+model Outfit {
+  id                 String      @id @default(uuid())
+  userId             String
+  stylingRequestId   String?
+  name               String
+  description        String?     @db.Text
+  occasion           String
+  colorPalette       Json?       // string[] of hex colors
+  recommendationData Json?       // full AI recommendation payload
+  stylingTips        Json?       // string[]
+  status             OutfitStatus @default(DRAFT)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stylingRequest StylingRequest? @relation(fields: [stylingRequestId], references: [id], onDelete: SetNull)
+  items          OutfitItem[]
+  tryOnJobs      TryOnJob[]
+  savedLooks     SavedLook[]
+  outfitPlans    OutfitPlan[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("outfits")
+}
+
+// ─── OUTFIT ITEMS ─────────────────────────────────────────────────────────────
+
+model OutfitItem {
+  id             String @id @default(uuid())
+  outfitId       String
+  wardrobeItemId String
+  slot           String // top, bottom, outerwear, shoes, bag, accessory
+  position       Int    @default(0)
+
+  outfit       Outfit       @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  wardrobeItem WardrobeItem @relation(fields: [wardrobeItemId], references: [id], onDelete: Restrict)
+
+  @@index([outfitId])
+  @@index([wardrobeItemId])
+  @@map("outfit_items")
+}
+
+// ─── TRY-ON JOBS ──────────────────────────────────────────────────────────────
+
+model TryOnJob {
+  id                 String      @id @default(uuid())
+  userId             String
+  outfitId           String?
+  referenceImagePath String
+  resultImagePath    String?
+  provider           String      // fashn | replicate | none
+  modelId            String?
+  status             TryOnStatus @default(PENDING)
+  errorMessage       String?     @db.Text
+  retryCount         Int         @default(0)
+  metadata           Json?       // provider-specific metadata
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  completedAt        DateTime?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfit    Outfit?    @relation(fields: [outfitId], references: [id], onDelete: SetNull)
+  savedLook SavedLook?
+
+  @@index([userId])
+  @@index([status])
+  @@map("try_on_jobs")
+}
+
+// ─── SAVED LOOKS (LOOKBOOK) ───────────────────────────────────────────────────
+
+model SavedLook {
+  id         String   @id @default(uuid())
+  userId     String
+  outfitId   String?
+  tryOnJobId String?  @unique
+  name       String
+  notes      String?  @db.Text
+  tags       Json?    // string[]
+  isFavorite Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfit   Outfit?   @relation(fields: [outfitId], references: [id], onDelete: SetNull)
+  tryOnJob TryOnJob? @relation(fields: [tryOnJobId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("saved_looks")
+}
+
+// ─── OUTFIT PLANS ─────────────────────────────────────────────────────────────
+
+model OutfitPlan {
+  id          String   @id @default(uuid())
+  userId      String
+  outfitId    String
+  plannedDate DateTime @db.Date
+  occasion    String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfit Outfit @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, plannedDate])
+  @@map("outfit_plans")
+}
+
+// ─── USER CONSENTS ────────────────────────────────────────────────────────────
+
+model UserConsent {
+  id          String      @id @default(uuid())
+  userId      String
+  consentType ConsentType
+  version     String
+  grantedAt   DateTime?
+  withdrawnAt DateTime?
+  ipAddress   String?
+  userAgent   String?     @db.Text
+  createdAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@unique([userId, consentType, version])
+  @@map("user_consents")
+}
+
+// ─── AUDIT EVENTS ─────────────────────────────────────────────────────────────
+
+model AuditEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  eventType String   // login_success, login_failed, password_change, account_delete, etc.
+  ipAddress String?
+  userAgent String?  @db.Text
+  metadata  Json?    // non-sensitive context data only
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("audit_events")
+}
